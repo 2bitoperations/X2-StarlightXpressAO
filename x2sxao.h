@@ -21,6 +21,7 @@
 #include "modalsettingsdialoginterface.h"
 #include "x2guiinterface.h"
 #include "sberrorx.h"
+#include "mutexinterface.h"
 
 #include "sxao.h"
 
@@ -160,9 +161,10 @@ public:
     // SerialPortParams2Interface
     virtual void         portName(BasicStringInterface& str) const;
     virtual void         setPortName(const char* szPort);
+    // SX AO is fixed at 9600 8N1
     virtual unsigned int baudRate() const      { return 9600; }
     virtual void         setBaudRate(unsigned int) {}
-    virtual bool         isBaudRateFixed() const { return false; }
+    virtual bool         isBaudRateFixed() const { return true; }
 
     virtual SerXInterface::Parity parity() const          { return SerXInterface::B_NOPARITY; }
     virtual void                  setParity(const SerXInterface::Parity&) {}

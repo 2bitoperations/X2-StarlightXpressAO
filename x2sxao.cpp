@@ -1,4 +1,7 @@
 #include "x2sxao.h"
+#include <cstdio>
+#include <cstring>
+#include <sstream>
 
 X2SXAO::X2SXAO(const char*                       pszDriverSelection,
                const int&                         nInstanceIndex,
@@ -22,7 +25,7 @@ X2SXAO::X2SXAO(const char*                       pszDriverSelection,
     m_pTickCount     = pTickCount;
 
     m_bLinked = false;
-    m_pAO     = new SXAO();
+    m_pAO     = new SXAO(pSerX);
 }
 
 X2SXAO::~X2SXAO()
@@ -223,13 +226,145 @@ void X2SXAO::getPortName(std::string& sPortName) const
 // ModalSettingsDialogInterface / X2GUIEventInterface
 // -------------------------------------------------------------------------
 
+// Decode the 4-bit limit status byte into a human-readable string.
+static std::string formatLimitStatus(unsigned char bits)
+{
+    if (bits == 0)
+        return "None";
+
+    std::string s;
+    if (bits & 0x01) s += "N ";
+    if (bits & 0x02) s += "S ";
+    if (bits & 0x04) s += "E ";
+    if (bits & 0x08) s += "W ";
+    if (!s.empty() && s.back() == ' ')
+        s.pop_back();
+    return s;
+}
+
+// Push current firmware, limit, and position values into the open dialog.
+static void refreshInfo(X2GUIExchangeInterface* dx, SXAO* pAO)
+{
+    char buf[32];
+
+    std::string sFirmware;
+    if (pAO->getFirmwareVersion(sFirmware) == SB_OK)
+        dx->setText("label_firmware", sFirmware.c_str());
+    else
+        dx->setText("label_firmware", "Error");
+
+    unsigned char limitBits = 0;
+    if (pAO->getLimitStatus(limitBits) == SB_OK)
+        dx->setText("label_limits", formatLimitStatus(limitBits).c_str());
+    else
+        dx->setText("label_limits", "Error");
+
+    short nRa = 0, nDec = 0;
+    pAO->getTipTilt(&nRa, &nDec);
+    snprintf(buf, sizeof(buf), "%+d", (int)nRa);
+    dx->setText("label_ra_pos", buf);
+    snprintf(buf, sizeof(buf), "%+d", (int)nDec);
+    dx->setText("label_dec_pos", buf);
+}
+
 int X2SXAO::execModalSettingsDialog(void)
 {
-    // TODO: implement settings UI
+    int nErr = SB_OK;
+    X2ModalUIUtil uiutil(this, m_pTheSkyX);
+    X2GUIInterface*         ui = uiutil.X2UI();
+    X2GUIExchangeInterface* dx = NULL;
+    bool bPressedOK = false;
+
+    if (NULL == ui)
+        return ERR_POINTER;
+
+    if ((nErr = ui->loadUserInterface("SXAO.ui", deviceType(), m_nInstanceIndex)))
+        return nErr;
+
+    if (NULL == (dx = uiutil.X2DX()))
+        return ERR_POINTER;
+
+    X2MutexLocker ml(GetMutex());
+
+    if (m_bLinked)
+    {
+        dx->setEnabled("pushButton_centre", true);
+        dx->setEnabled("pushButton_unjam",  true);
+        refreshInfo(dx, m_pAO);
+    }
+    else
+    {
+        dx->setEnabled("pushButton_centre", false);
+        dx->setEnabled("pushButton_unjam",  false);
+        dx->setText("label_firmware", "Not connected");
+        dx->setText("label_limits",   "—");
+        dx->setText("label_ra_pos",   "—");
+        dx->setText("label_dec_pos",  "—");
+    }
+    dx->setText("label_status", "");
+
+    if ((nErr = ui->exec(bPressedOK)))
+        return nErr;
+
     return SB_OK;
 }
 
-void X2SXAO::uiEvent(X2GUIExchangeInterface* /*uiex*/, const char* /*pszEvent*/)
+void X2SXAO::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 {
-    // TODO: handle UI events
+    if (!m_bLinked || !m_pAO)
+        return;
+
+    // Periodic refresh of position and limit status
+    if (!strcmp(pszEvent, "on_timer"))
+    {
+        refreshInfo(uiex, m_pAO);
+        return;
+    }
+
+    if (!strcmp(pszEvent, "on_pushButton_centre_clicked"))
+    {
+        uiex->setText("label_status", "Centring...");
+        uiex->setEnabled("pushButton_centre", false);
+        uiex->setEnabled("pushButton_unjam",  false);
+
+        int nErr = m_pAO->centerAO();
+
+        if (nErr == SB_OK)
+            uiex->setText("label_status", "Centred.");
+        else
+        {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "Error %d", nErr);
+            uiex->setText("label_status", buf);
+        }
+
+        refreshInfo(uiex, m_pAO);
+        uiex->setEnabled("pushButton_centre", true);
+        uiex->setEnabled("pushButton_unjam",  true);
+    }
+    else if (!strcmp(pszEvent, "on_pushButton_unjam_clicked"))
+    {
+        uiex->setText("label_status", "Unjamming (slow centre)...");
+        uiex->setEnabled("pushButton_centre", false);
+        uiex->setEnabled("pushButton_unjam",  false);
+        uiex->setEnabled("pushButtonOK",      false);
+        uiex->setEnabled("pushButtonCancel",  false);
+
+        int nErr = m_pAO->unjamAO();
+
+        if (nErr == SB_OK)
+            uiex->setText("label_status", "Unjam complete.");
+        else
+        {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "Unjam error %d", nErr);
+            uiex->setText("label_status", buf);
+        }
+
+        refreshInfo(uiex, m_pAO);
+        uiex->setEnabled("pushButton_centre", true);
+        uiex->setEnabled("pushButton_unjam",  true);
+        uiex->setEnabled("pushButtonOK",      true);
+        uiex->setEnabled("pushButtonCancel",  true);
+    }
 }

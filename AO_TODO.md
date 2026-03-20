@@ -128,3 +128,60 @@ For projects living outside X2-Examples (like this one), the Makefile automatica
 This lets the SDK headers' internal `../../licensedinterfaces/` references resolve correctly. The Makefile uses flat includes (`-I../X2-Examples/licensedinterfaces`) in our own source files.
 
 This same issue affects the OnStep plugin (`../OnStep/`): its pre-built `.o` files are stale from a previous location; it cannot currently be rebuilt in place without the same fix.
+
+
+    Serial Protocol                                              
+
+    Port settings: 9600 baud, 8 data bits, 1 stop bit, no parity.                            
+
+    The device connects as a virtual serial port (FTDI USB-serial inside the SX AO USB unit).
+
+    Command Table                                                                                                           
+                                                                                                                            
+    ┌─────────────────────────┬─────────────────────────────┬──────────────────────────────────────────────────────────────┐
+    │  Command (bytes sent)   │         Description         │                           Response                           │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ X                       │ Handshake                   │ Y                                                            │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ V                       │ Get firmware version        │ V + 3 ASCII digits (e.g. V123)                               │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ K                       │ Find centre (home, fast)    │ K                                                            │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ R                       │ Centre at low speed (unjam) │ K                                                            │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ L                       │ Get limit switch status     │ 1 byte, ASCII 0x30–0x3F; bits encode which limits are active │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ G N 0 0 0 0 N (7 bytes) │ AO N steps North            │ G (ok) or L (hit limit)                                      │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ G S 0 0 0 0 N (7 bytes) │ AO N steps South            │ G or L                                                       │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ G T 0 0 0 0 N (7 bytes) │ AO N steps East             │ G or L                                                       │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ G W 0 0 0 0 N (7 bytes) │ AO N steps West             │ G or L                                                       │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ M N 0 0 0 0 N (7 bytes) │ Mount bump N steps North    │ M                                                            │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ M S 0 0 0 0 N (7 bytes) │ Mount bump N steps South    │ M                                                            │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ M T 0 0 0 0 N (7 bytes) │ Mount bump N steps East     │ M                                                            │
+    ├─────────────────────────┼─────────────────────────────┼──────────────────────────────────────────────────────────────┤
+    │ M W 0 0 0 0 N (7 bytes) │ Mount bump N steps West     │ M                                                            │
+    └─────────────────────────┴─────────────────────────────┴──────────────────────────────────────────────────────────────┘
+
+    G/M Command Format                              
+
+    7 ASCII bytes: [G|M][N|S|T|W][0][0][0][0][count]                                                                                     
+                       
+    The step count occupies bytes 3–7 as a zero-padded 5-character ASCII decimal integer. For 1 step: GN00001. For 10 steps: GN00010. For
+    255 steps: GN00255.                                                              
+
+    T = East, W = West (the manual uses compass headings for the optic, not the sky).
+
+    Notes                                                                                                                          
+                                       
+    - The device does not expose an absolute position query. Position must be tracked in software by counting steps sent. After a K
+    command, position resets to centre.                                                                                                  
+    - Do not send a new command until the previous one has returned its response character.
+    - Mount bump commands (M) can interleave with AO commands in serial mode, allowing the AO to back off while the mount corrects — this
+    is not available in parallel (pulse-width) mode.
+

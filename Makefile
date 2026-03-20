@@ -6,19 +6,26 @@
 # We satisfy this by symlinking ../licensedinterfaces -> ../X2-Examples/licensedinterfaces
 # (i.e. appinstall/licensedinterfaces -> appinstall/X2-Examples/licensedinterfaces)
 # and adding that path to the flat-include search path.
-#
-# On macOS, replace -DSB_LINUX_BUILD with -DSB_MACOSX_BUILD and change the
-# target lib extension to .dylib.
 
-CC       = gcc
-SDK_LI   = ../X2-Examples/licensedinterfaces
-CPPFLAGS = -fPIC -Wall -Wextra -O2 -g -DSB_LINUX_BUILD -std=gnu++11 \
+CC      = g++
+SDK_LI  = ../X2-Examples/licensedinterfaces
+RM      = rm -f
+STRIP   = strip
+
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)
+  TARGET_LIB = libSXAO.dylib
+  OS_FLAG    = -DSB_MACOSX_BUILD
+  LDFLAGS    = -dynamiclib -lstdc++
+else
+  TARGET_LIB = libSXAO.so
+  OS_FLAG    = -DSB_LINUX_BUILD
+  LDFLAGS    = -shared -lstdc++
+endif
+
+CPPFLAGS = -fPIC -Wall -Wextra -O2 -g $(OS_FLAG) -std=gnu++11 \
            -I. -I$(SDK_LI)
-LDFLAGS  = -shared -lstdc++
-RM       = rm -f
-STRIP    = strip
-
-TARGET_LIB = libSXAO.so
 
 SRCS = main.cpp sxao.cpp x2sxao.cpp
 OBJS = $(SRCS:.cpp=.o)
@@ -45,4 +52,4 @@ ${TARGET_LIB}: $(OBJS)
 	$(CC) $(CPPFLAGS) -c $< -o $@
 
 clean:
-	${RM} ${TARGET_LIB} ${OBJS}
+	${RM} libSXAO.so libSXAO.dylib ${OBJS}
