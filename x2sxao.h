@@ -27,10 +27,11 @@
 
 #define PLUGIN_VERSION 1.0
 
-#define PARENT_KEY          "StarlightXpressAO"
-#define CHILD_KEY_PORT_NAME "PortName"
-#define MAX_PORT_NAME_SIZE  120
-#define DEF_PORT_NAME       "No port found"
+#define PARENT_KEY           "StarlightXpressAO"
+#define CHILD_KEY_PORT_NAME  "PortName"
+#define CHILD_KEY_DEBUG_LVL  "DebugLevel"
+#define MAX_PORT_NAME_SIZE   120
+#define DEF_PORT_NAME        "No port found"
 
 // -------------------------------------------------------------------------
 // AdaptiveOpticsDriverInterface
@@ -200,4 +201,5 @@ private:
 
     SXAO* m_pAO;
     bool  m_bLinked;
+    int   m_nDebugLevel;
 };

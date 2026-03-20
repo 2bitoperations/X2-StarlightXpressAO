@@ -24,8 +24,15 @@ X2SXAO::X2SXAO(const char*                       pszDriverSelection,
     m_pIOMutex       = pIOMutex;
     m_pTickCount     = pTickCount;
 
-    m_bLinked = false;
-    m_pAO     = new SXAO(pSerX);
+    m_bLinked     = false;
+    m_nDebugLevel = 0;
+    m_pAO         = new SXAO(pSerX);
+
+    if (m_pIniUtil)
+    {
+        m_nDebugLevel = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, 0);
+        m_pAO->setDebugLevel(m_nDebugLevel);
+    }
 }
 
 X2SXAO::~X2SXAO()
@@ -302,9 +309,18 @@ int X2SXAO::execModalSettingsDialog(void)
         dx->setText("label_dec_pos",  "—");
     }
     dx->setText("label_status", "");
+    dx->setCurrentIndex("comboBox_debug", m_nDebugLevel);
 
     if ((nErr = ui->exec(bPressedOK)))
         return nErr;
+
+    if (bPressedOK)
+    {
+        m_nDebugLevel = dx->currentIndex("comboBox_debug");
+        m_pAO->setDebugLevel(m_nDebugLevel);
+        if (m_pIniUtil)
+            m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, m_nDebugLevel);
+    }
 
     return SB_OK;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <fstream>
 #include "serxinterface.h"
 
 // -------------------------------------------------------------------------
@@ -20,6 +21,12 @@
 //   GT00001      → 1 step East      ← G or L
 //   GW00001      → 1 step West      ← G or L
 //   G{dir}NNNNN  → N steps (NNNNN = 5-char zero-padded ASCII decimal)
+//
+// Debug levels:
+//   0 = off
+//   1 = errors only
+//   2 = full trace (function entry, commands, responses)
+//   3 = raw serial (level 2 + hex dumps of every byte sent/received)
 // -------------------------------------------------------------------------
 
 class SXAO
@@ -32,6 +39,10 @@ public:
     int  Connect(const std::string& sPortName);
     int  Disconnect();
     bool isConnected() const;
+
+    // Debug logging: 0=off 1=errors 2=trace 3=raw serial
+    void setDebugLevel(int nLevel);
+    int  debugLevel() const { return m_nDebugLevel; }
 
     // Device information
     int getFirmwareVersion(std::string& sVersion);
@@ -63,13 +74,19 @@ public:
 
 private:
     // Send cmd (cmdLen bytes), read respLen bytes into resp.
-    // Returns SB_OK or ERR_COMMNOLINK / ERR_COMMTIMEOUT.
     int sendCmd(const char* cmd, int cmdLen, char* resp, int respLen,
                 unsigned long timeoutMs = 2000);
 
     // Send a step command: 'G' + dir + 5-char count.
-    // dir is one of 'N','S','T','W'.  Updates m_nRaPos / m_nDecPos on success.
     int sendStep(char dir, unsigned short nSteps, bool isRa, int sign);
+
+    // Logging helpers
+    std::string getTimeStamp() const;   // ISO 8601 UTC with milliseconds
+    std::string hexStr(const void* data, int len) const;
+    void        logLine(const std::string& msg);
+    void        logError(const char* func, int nErr, const std::string& detail = "");
+    void        logTrace(const char* func, const std::string& msg);
+    void        logRaw(const char* label, const void* data, int len);
 
     SerXInterface*  m_pSerX;
     bool            m_bConnected;
@@ -80,4 +97,9 @@ private:
 
     // Fixed hardware range (steps from centre to limit)
     static const short SX_AO_HALF_RANGE = 127;
+
+    // Debug logging
+    int             m_nDebugLevel;
+    std::ofstream   m_logFile;
+    std::string     m_sLogPath;
 };
