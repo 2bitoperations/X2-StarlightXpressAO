@@ -1,0 +1,99 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Matrix build: Linux, macOS, Windows
+  # -----------------------------------------------------------------------
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact: libSXAO.so
+
+          - os: macos-latest
+            platform: macos
+            artifact: libSXAO.dylib
+
+          - os: windows-latest
+            platform: windows
+            artifact: libSXAO.dll
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---- Linux / macOS ----
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: make
+
+      # ---- Windows: MSYS2 + MinGW64 ----
+      - name: Setup MSYS2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            make
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: make
+
+      # ---- Collect distributable files ----
+      - name: Package
+        shell: bash
+        run: |
+          mkdir dist
+          cp "${{ matrix.artifact }}" dist/
+          cp SXAO.ui dist/
+          cp "adaptiveopticslist StarlightXpress.txt" dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sxao-plugin-${{ matrix.platform }}
+          path: dist/
+
+  # -----------------------------------------------------------------------
+  # On version tags: create a GitHub release and attach all three builds
+  # -----------------------------------------------------------------------
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Zip platform bundles
+        run: |
+          cd artifacts
+          for dir in */; do
+            zip -r "${dir%/}.zip" "$dir"
+          done
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true

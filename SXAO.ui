@@ -219,6 +219,16 @@
       <item>
        <layout class="QHBoxLayout" name="buttonLayout">
         <item>
+         <widget class="QLabel" name="label_version">
+          <property name="text">
+           <string>v1 (unknown)</string>
+          </property>
+          <property name="styleSheet">
+           <string>color: gray;</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <spacer name="horizontalSpacer">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>

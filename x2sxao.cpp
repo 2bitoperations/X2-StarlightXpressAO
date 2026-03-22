@@ -145,7 +145,7 @@ void X2SXAO::driverInfoDetailedInfo(BasicStringInterface& str) const
 
 double X2SXAO::driverInfoVersion(void) const
 {
-    return PLUGIN_VERSION;
+    return PLUGIN_VERSION_DOUBLE;
 }
 
 // -------------------------------------------------------------------------
@@ -309,6 +309,7 @@ int X2SXAO::execModalSettingsDialog(void)
         dx->setText("label_dec_pos",  "—");
     }
     dx->setText("label_status", "");
+    dx->setText("label_version", "v" PLUGIN_VERSION_STRING " (" GIT_HASH ")");
     dx->setCurrentIndex("comboBox_debug", m_nDebugLevel);
 
     if ((nErr = ui->exec(bPressedOK)))

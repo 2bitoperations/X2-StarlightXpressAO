@@ -2,9 +2,7 @@
 
 #include <string.h>
 
-// These headers are found via -I../X2-Examples/licensedinterfaces in the Makefile.
-// The symlink ../licensedinterfaces -> ../X2-Examples/licensedinterfaces allows the
-// SDK headers' internal "../../licensedinterfaces/..." cross-references to resolve.
+// SDK headers vendored in licensedinterfaces/; compiled with -DX2_FLAT_INCLUDES.
 #include "driverrootinterface.h"
 #include "linkinterface.h"
 #include "deviceinfointerface.h"
@@ -24,8 +22,7 @@
 #include "mutexinterface.h"
 
 #include "sxao.h"
-
-#define PLUGIN_VERSION 1.0
+#include "version.h"
 
 #define PARENT_KEY           "StarlightXpressAO"
 #define CHILD_KEY_PORT_NAME  "PortName"
